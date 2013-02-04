@@ -40,6 +40,7 @@ if( socket == null )
 
 BufferedReader reader = new BufferedReader( new InputStreamReader( socket.getInputStream() ) );
 System.out.println( reader.readLine() );
+socket.getOutputStream().write( "OK\n".getBytes() );
 socket.close();
 }
 //--------------------------------------------------------------------------------

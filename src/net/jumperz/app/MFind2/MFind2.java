@@ -89,10 +89,19 @@ conn.close();
 Server.main( new String[]{ "-pg", "-pgPort", pgPort + "", "-baseDir", dbDir } );
 
 socket.getOutputStream().write( ( pgPort + "\n" ).getBytes() );
+BufferedReader reader = new BufferedReader( new InputStreamReader( socket.getInputStream() ) );
+String received = reader.readLine();
+if( received != null && received.equals( "OK" ) )
+	{
+	debug( "Database is ready." );
+	}
+else
+	{
+	debug( "Launcher is not responding." );
+	System.exit( 0 );
+	}
 socket.close();
 sSocket.close();
-debug( "Database is ready." );
-
 }
 //--------------------------------------------------------------------------------
 public void server1()
