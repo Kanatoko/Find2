@@ -4,13 +4,18 @@ package net.jumperz.app.MFind2;
 import net.jumperz.sql.*;
 import net.jumperz.util.MObjectArray;
 import net.jumperz.util.MRegEx;
+import net.jumperz.util.MSystemUtil;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.sql.*;
 import java.util.*;
+
+import org.h2.server.pg.PgServer;
 import org.h2.tools.Server;
 import java.io.*;
 
@@ -27,6 +32,9 @@ private int pgPort;
 private static int maxDepth = Integer.MAX_VALUE;
 private static int maxCount = 1000000;
 private static int count;
+private static Server server;
+private static PgServer pgServer;
+private static volatile boolean terminated;
 //--------------------------------------------------------------------------------
 public static void main( String[] args )
 throws Exception
@@ -86,7 +94,10 @@ MSqlUtil.getInt2( conn, "select dir( '" + pwd + "')" );
 //conn.commit();
 conn.close();
 
-Server.main( new String[]{ "-pg", "-pgPort", pgPort + "", "-baseDir", dbDir } );
+String[] pgArgs = new String[]{ "-pg", "-pgPort", pgPort + "", "-baseDir", dbDir };
+pgServer = new PgServer();
+server = new Server( pgServer, pgArgs );
+server.start();
 
 socket.getOutputStream().write( ( pgPort + "\n" ).getBytes() );
 BufferedReader reader = new BufferedReader( new InputStreamReader( socket.getInputStream() ) );
@@ -102,6 +113,27 @@ else
 	}
 socket.close();
 sSocket.close();
+
+int idleCount = 0;
+while( !terminated && idleCount <= 5 ) // exit if idle for 30 seconds
+	{
+	MSystemUtil.sleep( 5 * 1000 );
+	Set running = getRunning( pgServer );
+	if( running.size() == 0 )
+		{
+		debug( "idle..." );
+		++ idleCount;
+		}
+	else
+		{
+		debug( "conn found." );
+		idleCount = 0;
+		}
+	}
+
+debug( "shutdown2" );
+pgServer.stop();
+server.shutdown();
 }
 //--------------------------------------------------------------------------------
 public void server1()
@@ -127,11 +159,16 @@ catch( Exception e )
 public static int shutdownFind2( Connection conn )
 throws SQLException
 {
+terminated = true;
+
 ( new Thread() {
 public void run()
 {
 sleep2( 3000 );
-System.exit( 0 );
+//server.shutdown();
+System.out.println( "shutdown1" );
+pgServer.stop();
+server.shutdown();
 }
 } ).start();
 
@@ -324,6 +361,30 @@ catch( Exception e )
 	e.printStackTrace();
 	}
 
+}
+//--------------------------------------------------------------------------------
+public static Set getRunning( PgServer pgServer )
+{
+try
+	{
+	Object object = pgServer;
+	String fieldName = "running";
+	Field field = null;
+	Method method = null;
+	Class clazz = null;
+
+	clazz  = Class.forName( "org.h2.server.pg.PgServer" );
+	field = clazz.getDeclaredField( fieldName );
+	field.setAccessible( true );
+	object = field.get( object );
+
+	return ( Set )object;	
+	}
+catch( Exception e )
+	{
+	e.printStackTrace();
+	return null;
+	}
 }
 //--------------------------------------------------------------------------------
 //From Apache Commons
