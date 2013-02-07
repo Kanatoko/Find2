@@ -164,9 +164,7 @@ terminated = true;
 ( new Thread() {
 public void run()
 {
-sleep2( 3000 );
-//server.shutdown();
-System.out.println( "shutdown1" );
+MSystemUtil.sleep( 3000 );
 pgServer.stop();
 server.shutdown();
 }
